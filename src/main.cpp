@@ -519,6 +519,15 @@ void canvas_menu(int num)
 		canvas.polygon_mode = canvashdl::line;
 	else if (num == 23)
 		canvas.polygon_mode = canvashdl::fill;
+	// TODO Assignment 3: uncomment this
+	//else if (num == 24)
+	//	canvas.shade_model = canvashdl::none;
+	//else if (num == 25)
+	//	canvas.shade_model = canvashdl::flat;
+	//else if (num == 26)
+	//	canvas.shade_model = canvashdl::gouraud;
+	//else if (num == 27)
+	//	canvas.shade_model = canvashdl::phong;
 	else if (num == 28)
 		canvas.culling = canvashdl::disable;
 	else if (num == 29)
@@ -543,7 +552,7 @@ void object_menu(int num)
 		{
 			if (scene.objects[scene.active_object] != NULL)
 			{
-				/* TODO Assignment 2: clean up the lights as well when the associated object
+				/* TODO Assignment 3: clean up the lights as well when the associated object
 				 * is deleted.
 				 */
 
@@ -591,7 +600,7 @@ void object_menu(int num)
 
 void create_menu()
 {
-	/* TODO Assignment 2: Add menus for handling the lights. You should
+	/* TODO Assignment 3: Add menus for handling the lights. You should
 	 * be able to enable/disable the drawing of the lights and create
 	 * directional, point, or spot lights sources. You should also be able
 	 * to change the emissive, ambient, diffuse, and specular colors and
@@ -600,7 +609,7 @@ void create_menu()
 	 * affect the lighting of the scene.
 	 */
 
-	// TODO Assignment 2: Add menus to manipulate the shading model.
+	// TODO Assignment 3: Add menus to manipulate the shading model.
 
 	int objects_id = glutCreateMenu(canvas_menu);
 	glutAddMenuEntry(" Box         ", 1);
