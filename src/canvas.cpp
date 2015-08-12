@@ -38,7 +38,7 @@ canvashdl::canvashdl(int w, int h)
 		matrices[i] = identity<float, 4, 4>();
 
 	polygon_mode = fill;
-	shade_model = none;
+	shade_model = smooth;
 	culling = backface;
 }
 
@@ -382,9 +382,88 @@ void canvashdl::plot_line(vec3f v1, vector<float> v1_varying, vec3f v2, vector<f
  */
 void canvashdl::plot_half_triangle(vec3i s1, vector<float> v1_varying, vec3i s2, vector<float> v2_varying, vec3i s3, vector<float> v3_varying, vector<float> ave_varying)
 {
-	// TODO Assignment 3: Implement Bresenham's half triangle fill algorithm
+	int b12 = (abs(s2[1] - s1[1]) > abs(s2[0] - s1[0]));
+	int b13 = (abs(s1[1] - s3[1]) > abs(s1[0] - s3[0]));
+
+	vec2i dv12 = s2 - s1;
+	vec2i dv13 = s3 - s1;
+
+	vec2i step12, step13;
+	for (int i = 0; i < 2; i++)
+	{
+		step12[i] = (int)(dv12[i] > 0) - (int)(dv12[i] < 0);
+		dv12[i] *= step12[i];
+		step13[i] = (int)(dv13[i] > 0) - (int)(dv13[i] < 0);
+		dv13[i] *= step13[i];
+	}
+
+	int D12 = 2*dv12[1-b12] - dv12[b12];
+	int D13 = 2*dv13[1-b13] - dv13[b13];
 
 	// TODO Assignment 3: Interpolate the varying values before passing them into plot.
+
+	plot(s1, ave_varying);
+
+	vec3i p12 = s1, p13 = s1;
+	float increment12 = (float)step12[b12]/(float)(s2[b12] - s1[b12]);
+	float increment13 = (float)step13[b13]/(float)(s3[b13] - s1[b13]);
+	float interpolate12 = 0.0f;
+	float interpolate13 = 0.0f;
+	while (step12[b12] != 0 && step13[b13] != 0 && step12[b12]*p12[b12] < step12[b12]*s2[b12] && step13[b13]*p13[b13] < step13[b13]*s3[b13])
+	{
+		vec2i old = p12;
+		do
+		{
+			if (D12 > 0)
+			{
+				p12[1-b12] += step12[1-b12];
+				D12 += 2*(dv12[1-b12] - dv12[b12]);
+			}
+			else
+				D12 += 2*dv12[1-b12];
+
+			p12[b12] += step12[b12];
+			interpolate12 += increment12;
+		} while ((step12[b12] != 0 || step12[1-b12] != 0) && (vec2i)p12 == old && step12[b12]*p12[b12] < step12[b12]*s2[b12]);
+
+		while ((step13[b13] != 0 || step13[1-b13] != 0) && p13[0] != p12[0] && step13[b13]*p13[b13] < step13[b13]*s3[b13])
+		{
+			p13[b13] += step13[b13];
+			interpolate13 += increment13;
+
+			if (D13 > 0)
+			{
+				p13[1-b13] += step13[1-b13];
+				D13 += 2*(dv13[1-b13] - dv13[b13]);
+			}
+			else
+				D13 += 2*dv13[1-b13];
+		}
+
+		p12[2] = (int)((float)(s2[2] - s1[2])*interpolate12 + (float)s1[2]);
+		p13[2] = (int)((float)(s3[2] - s1[2])*interpolate13 + (float)s1[2]);
+
+		vec3i Ai = p12;
+		vec3i Bi = p13;
+
+		if (Ai[1] > Bi[1])
+			swap(Ai, Bi);
+
+		vec3i p = Ai;
+		float increment = 1.0f/(float)(Bi[1] - Ai[1]);
+		float interpolateab = 0.0f;
+
+		float zdiff = (float)(Bi[2] - Ai[2]);
+
+		for (; p[1] < Bi[1]; p[1]++)
+		{
+			p[2] = (int)(zdiff*interpolateab) + Ai[2];
+
+			plot(p, ave_varying);
+			interpolateab += increment;
+		}
+		plot(Bi, ave_varying);
+	}
 }
 
 /* plot_triangle
@@ -414,7 +493,29 @@ void canvashdl::plot_triangle(vec3f v1, vector<float> v1_varying, vec3f v2, vect
 		plot_line(v2, v2_varying, v3, v3_varying);
 		plot_line(v3, v3_varying, v1, v1_varying);
 
-		// TODO Assignment 3: Calculate the average varying vector for flat shading and call plot_half_triangle as needed.
+		if (v1[0] > v2[0])
+		{
+			swap(v1, v2);
+			swap(v1_varying, v2_varying);
+		}
+		if (v1[0] > v3[0])
+		{
+			swap(v1, v3);
+			swap(v1_varying, v3_varying);
+		}
+		if (v2[0] > v3[0])
+		{
+			swap(v2, v3);
+			swap(v2_varying, v3_varying);
+		}
+
+		vector<float> ave_varying(v1_varying.size());
+
+		for (int i = 0; i < (int)v1_varying.size(); i++)
+			ave_varying[i] = (v1_varying[i] + v2_varying[i] + v3_varying[i])/3.0f;
+
+		plot_half_triangle((vec3i)v1, v1_varying, (vec3i)v2, v2_varying, (vec3i)v3, v3_varying, ave_varying);
+		plot_half_triangle((vec3i)v3, v3_varying, (vec3i)v1, v1_varying, (vec3i)v2, v2_varying, ave_varying);
 	}
 }
 
@@ -428,7 +529,7 @@ void canvashdl::plot_triangle(vec3f v1, vector<float> v1_varying, vec3f v2, vect
  */
 void canvashdl::draw_points(const vector<vec8f> &geometry)
 {
-	update_normal_matrix();
+	// TODO Assignment 3: Update the normal matrix.
 	mat4f transform = matrices[projection_matrix]*matrices[modelview_matrix];
 	vec4f planes[6];
 	for (int i = 0; i < 6; i++)
@@ -466,7 +567,7 @@ void canvashdl::draw_points(const vector<vec8f> &geometry)
  */
 void canvashdl::draw_lines(const vector<vec8f> &geometry, const vector<int> &indices)
 {
-	update_normal_matrix();
+	// TODO Assignment 3: Update the normal matrix.
 	mat4f transform = matrices[projection_matrix]*matrices[modelview_matrix];
 	vec4f planes[6];
 	for (int i = 0; i < 6; i++)
@@ -553,7 +654,7 @@ void canvashdl::draw_lines(const vector<vec8f> &geometry, const vector<int> &ind
 }
 
 /* draw_triangles
- * 
+ *
  * Draw a set of 3D triangles on the canvas. Each point in geometry is
  * formatted (vx, vy, vz, nx, ny, nz, s, t). Don't forget to clip the
  * triangles against the clipping planes of the projection. You can't
@@ -562,7 +663,7 @@ void canvashdl::draw_lines(const vector<vec8f> &geometry, const vector<int> &ind
  */
 void canvashdl::draw_triangles(const vector<vec8f> &geometry, const vector<int> &indices)
 {
-	update_normal_matrix();
+	// TODO Assignment 3: Update the normal matrix.
 	mat4f transform = matrices[projection_matrix]*matrices[modelview_matrix];
 	vec4f planes[6];
 	for (int i = 0; i < 6; i++)
